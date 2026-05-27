@@ -31,7 +31,8 @@ while (running)
     Console.WriteLine("5. Додати трек до плейліста");
     Console.WriteLine("6. Відтворити трек");
     Console.WriteLine("7. Відтворити плейліст");
-    Console.WriteLine("8. Вихід");
+    Console.WriteLine("8. Queries & Settings");
+    Console.WriteLine("9. Вихід");
     Console.Write("\nВиберіть опцію: ");
 
     string? choice = Console.ReadLine();
@@ -69,6 +70,10 @@ while (running)
                 break;
 
             case "8":
+                QueriesAndSettings(playerService, playlistRepository);
+                break;
+
+            case "9":
                 running = false;
                 Console.WriteLine("\nДо побачення!");
                 break;
@@ -85,6 +90,86 @@ while (running)
         Console.WriteLine("Натисніть будь-яку клавішу для продовження...");
         Console.ReadKey();
     }
+}
+
+static void QueriesAndSettings(PlayerService service, IRepository<Playlist> playlistRepository)
+{
+    Console.Clear();
+    Console.WriteLine("═══════════════════════════════════\n");
+    Console.WriteLine("QUERIES & SETTINGS:\n");
+    Console.WriteLine("1. Filter tracks by artist");
+    Console.WriteLine("2. Sort tracks by duration");
+    Console.WriteLine("3. Show aggregated stats (total duration)");
+    Console.WriteLine("4. Group tracks by artist");
+    Console.WriteLine("5. Save playlist to JSON");
+    Console.WriteLine("6. Load playlist from JSON");
+    Console.WriteLine("7. Set playback strategy (Normal/Shuffle)");
+    Console.WriteLine("8. Back");
+    Console.Write("Choose: ");
+
+    var opt = Console.ReadLine();
+    switch (opt)
+    {
+        case "1":
+            Console.Write("Artist name: ");
+            var artist = Console.ReadLine();
+            var byArtist = service.FilterByArtist(artist ?? string.Empty).ToList();
+            Console.WriteLine($"Found {byArtist.Count} tracks:");
+            foreach (var t in byArtist) Console.WriteLine($"  - {t}");
+            break;
+
+        case "2":
+            var sorted = service.SortByDuration().ToList();
+            foreach (var t in sorted) Console.WriteLine($"  - {t} | {t.Duration}s");
+            break;
+
+        case "3":
+            Console.WriteLine($"Total duration: {service.GetTotalDuration()}s");
+            break;
+
+        case "4":
+            var groups = service.GroupByArtist();
+            foreach (var g in groups)
+            {
+                Console.WriteLine($"{g.Key} ({g.Count()}):");
+                foreach (var t in g) Console.WriteLine($"  - {t}");
+            }
+            break;
+
+        case "5":
+            var playlists = playlistRepository.GetAll().ToList();
+            if (!playlists.Any()) { Console.WriteLine("No playlists to save."); break; }
+            Console.Write("Choose playlist number to save: ");
+            if (!int.TryParse(Console.ReadLine(), out int pi) || pi < 1 || pi > playlists.Count) { Console.WriteLine("Invalid"); break; }
+            var p = playlists[pi - 1];
+            Console.Write("File path (e.g. playlist.json): ");
+            var path = Console.ReadLine() ?? "playlist.json";
+            service.SavePlaylistAsync(p, path).GetAwaiter().GetResult();
+            Console.WriteLine("Saved.");
+            break;
+
+        case "6":
+            Console.Write("File path to load (e.g. playlist.json): ");
+            var loadPath = Console.ReadLine() ?? "playlist.json";
+            var state = service.LoadPlaylistStateAsync(loadPath).GetAwaiter().GetResult();
+            if (state == null) Console.WriteLine("Load failed or file missing.");
+            else Console.WriteLine($"Loaded {state.Playlist.Count} tracks, strategy {state.StrategyName}");
+            break;
+
+        case "7":
+            Console.Write("Strategy (Normal/Shuffle): ");
+            var s = Console.ReadLine();
+            service.SetStrategyByName(s ?? "Normal");
+            Console.WriteLine("Strategy set.");
+            break;
+
+        case "8":
+        default:
+            break;
+    }
+
+    Console.WriteLine("\nPress any key to continue...");
+    Console.ReadKey();
 }
 
 static void ViewAllTracks(PlayerService service)

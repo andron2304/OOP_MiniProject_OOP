@@ -5,7 +5,8 @@ namespace MusicPlayer.Domain;
 /// </summary>
 public class Playlist : IPlaylistComponent
 {
-    private readonly List<IPlaylistComponent> _components = [];
+    private readonly List<IPlaylistComponent> _components = new List<IPlaylistComponent>();
+    private const int MaxCapacity = 100;
 
     public string Id { get; }
     public string Title { get; }
@@ -24,6 +25,20 @@ public class Playlist : IPlaylistComponent
     {
         if (component == null)
             throw new ArgumentNullException(nameof(component));
+
+        // Enforce capacity: only track components contribute to capacity
+        int currentTrackCount = GetTrackCount();
+        int addingTracks = component is Track ? 1 : (component is Playlist p ? p.GetTrackCount() : 0);
+        if (currentTrackCount + addingTracks > MaxCapacity)
+            throw new InvalidOperationException($"Плейліст не може містити більше {MaxCapacity} треків.");
+
+        // Prevent duplicate track IDs when adding a Track
+        if (component is Track t)
+        {
+            var existingIds = new HashSet<string>(GetFlattenedTracks().Select(x => x.Id));
+            if (existingIds.Contains(t.Id))
+                throw new InvalidOperationException("Трек з таким Id вже існує в плейлісті.");
+        }
 
         _components.Add(component);
     }
@@ -46,6 +61,19 @@ public class Playlist : IPlaylistComponent
                 count += playlist.GetTrackCount();
         }
         return count;
+    }
+
+    public List<Track> GetFlattenedTracks()
+    {
+        var list = new List<Track>();
+        foreach (var component in _components)
+        {
+            if (component is Track t)
+                list.Add(t);
+            else if (component is Playlist p)
+                list.AddRange(p.GetFlattenedTracks());
+        }
+        return list;
     }
 
     public override string ToString() => $"Плейліст: {Title} ({GetTrackCount()} треків, {GetDuration()}с)";
