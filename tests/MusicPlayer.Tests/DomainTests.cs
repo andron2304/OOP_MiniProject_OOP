@@ -1,6 +1,7 @@
 using MusicPlayer.Domain;
 using MusicPlayer.Application.Services;
 using MusicPlayer.Infrastructure.Repositories;
+using Xunit;
 
 namespace MusicPlayer.Tests;
 
