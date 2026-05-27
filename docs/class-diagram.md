@@ -1,69 +1,67 @@
-# Class Diagram
-
 ```mermaid
 classDiagram
-    %% Domain Layer
-    class IPlaylistComponent {
+    class IDataStore~T~ {
         <<interface>>
-        +GetName() string
-        +GetDuration() int
-        +GetTrackCount() int
+        +Save(T data)
+        +Load() T
     }
 
-    class Track {
-        -Title: string
-        -Artist: string
-        -Duration: int
-        -Genre: string
-        +GetName() string
-        +GetDuration() int
-        +GetTrackCount() int
+    class JsonDataStore~T~ {
+        +filePath: string
+        +Save(T data)
+        +Load() T
     }
 
-    class Playlist {
-        -Name: string
-        -Components: List~IPlaylistComponent~
-        +AddComponent(component: IPlaylistComponent)
-        +RemoveComponent(component: IPlaylistComponent)
-        +GetComponents() List~IPlaylistComponent~
-        +GetName() string
-        +GetDuration() int
-        +GetTrackCount() int
-    }
+    IDataStore~T~ <|.. JsonDataStore~T~
 
-    %% Application Layer
-    class IPlaylistRepository {
+    class IPlaybackStrategy {
         <<interface>>
-        +CreatePlaylist(name: string) Playlist
-        +GetPlaylist(id: string) Playlist
-        +UpdatePlaylist(playlist: Playlist)
-        +DeletePlaylist(id: string)
-        +GetAllPlaylists() List~Playlist~
+        +NextIndex(int currentIndex, List~Track~ playlist) int
+        +Reset(List~Track~ playlist)
     }
+
+    class NormalStrategy {
+        +NextIndex(...)
+        +Reset(...)
+    }
+
+    class ShuffleStrategy {
+        +NextIndex(...)
+        +Reset(...)
+    }
+
+    IPlaybackStrategy <|.. NormalStrategy
+    IPlaybackStrategy <|.. ShuffleStrategy
 
     class PlayerService {
-        -Repository: IPlaylistRepository
-        +AddPlaylist(name: string) Playlist
-        +AddTrackToPlaylist(playlistId: string, track: Track)
-        +GetPlaylistInfo(playlistId: string) PlaylistInfo
-        +ListAllPlaylists() List~Playlist~
+        -IDataStore~PlaylistState~ datastore
+        -IPlaybackStrategy strategy
+        -List~Track~ playlist
+        -int currentIndex
+        +Add(Track)
+        +Play()
+        +Save()
+        +Load()
+        +SetStrategy(IPlaybackStrategy)
     }
 
-    %% Infrastructure Layer
-    class InMemoryPlaylistRepository {
-        -Playlists: Dictionary~string, Playlist~
-        +CreatePlaylist(name: string) Playlist
-        +GetPlaylist(id: string) Playlist
-        +UpdatePlaylist(playlist: Playlist)
-        +DeletePlaylist(id: string)
-        +GetAllPlaylists() List~Playlist~
+    PlayerService o-- IDataStore~PlaylistState~
+    PlayerService --> IPlaybackStrategy
+    PlayerService "1" o-- "*" Track : contains
+
+    class Track {
+        +string Id
+        +string Title
+        +string Artist
+        +int DurationSeconds
     }
 
-    %% Relationships
-    IPlaylistComponent <|.. Track
-    IPlaylistComponent <|.. Playlist
-    Playlist --> IPlaylistComponent
-    PlayerService --> IPlaylistRepository
-    IPlaylistRepository <|.. InMemoryPlaylistRepository
-    InMemoryPlaylistRepository --> Playlist
+    class PlaylistState {
+        +List~Track~ Playlist
+        +int CurrentIndex
+        +string StrategyName
+        +int Version
+    }
+
+    JsonDataStore~PlaylistState~ ..> PlaylistState
 ```
